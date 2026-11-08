@@ -4,6 +4,10 @@ import '../models/song_model.dart';
 import '../theme/app_theme.dart';
 import '../controllers/music_player_controller.dart';
 import '../widgets/equalizer_bars.dart';
+import '../widgets/cover_artwork.dart';
+import '../widgets/genre_labels.dart';
+import '../services/offline_music_service.dart';
+import '../widgets/sleep_timer_sheet.dart';
 
 class NowPlayingScreen extends StatefulWidget {
   const NowPlayingScreen({super.key});
@@ -28,6 +32,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
             body: Center(child: Text('Chưa có bài hát nào')),
           );
         }
+        final duration = player.currentDuration ?? Duration.zero;
 
         final isLiked = player.isLiked(currentSong.id);
         final accentColor = currentSong.accentColor;
@@ -37,9 +42,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
             children: [
               // Dynamic Ambient Glow Background
               Container(
-                decoration: const BoxDecoration(
-                  color: AppTheme.background,
-                ),
+                decoration: const BoxDecoration(color: AppTheme.background),
               ),
               Positioned(
                 top: -100,
@@ -64,9 +67,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
               // Frosted Glass Blur
               BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-                child: Container(
-                  color: Colors.black.withAlpha(70),
-                ),
+                child: Container(color: Colors.black.withAlpha(70)),
               ),
 
               // Main Content
@@ -117,7 +118,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                               size: 26,
                               color: Colors.white,
                             ),
-                            onPressed: () => _showMoreModal(context, currentSong),
+                            onPressed: () =>
+                                _showMoreModal(context, currentSong),
                           ),
                         ],
                       ),
@@ -129,7 +131,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                         duration: const Duration(milliseconds: 350),
                         child: _showLyrics
                             ? _buildLyricsView(currentSong)
-                            : _buildArtworkView(currentSong, accentColor, player.isPlaying),
+                            : _buildArtworkView(
+                                currentSong,
+                                accentColor,
+                                player.isPlaying,
+                              ),
                       ),
 
                       const Spacer(),
@@ -164,12 +170,52 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
+                                if (currentSong.tags.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  GenreLabels(
+                                    labels: currentSong.tags,
+                                    maxLabels: 5,
+                                  ),
+                                ],
+                                if (player.isLoading) ...[
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Đang tải bài hát...',
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                                if (player.playbackError != null) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Không phát được bài hát.',
+                                          style: const TextStyle(
+                                            color: Colors.redAccent,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      TextButton.icon(
+                                        onPressed: player.retryPlayback,
+                                        icon: const Icon(Icons.refresh_rounded),
+                                        label: const Text('Thử lại'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),
                           IconButton(
                             icon: Icon(
-                              isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                              isLiked
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
                               color: isLiked ? AppTheme.accent : Colors.white70,
                               size: 28,
                             ),
@@ -189,18 +235,25 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                               thumbColor: Colors.white,
                               inactiveTrackColor: Colors.white24,
                               trackHeight: 4,
-                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                              thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 7,
+                              ),
+                              overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 16,
+                              ),
                             ),
                             child: Slider(
-                              value: player.currentPosition.inSeconds.toDouble().clamp(
-                                    0.0,
-                                    currentSong.duration.inSeconds.toDouble(),
-                                  ),
-                              max: currentSong.duration.inSeconds.toDouble(),
-                              onChanged: (value) {
-                                player.seekTo(Duration(seconds: value.toInt()));
-                              },
+                              value: player.currentPosition.inSeconds
+                                  .toDouble()
+                                  .clamp(0.0, duration.inSeconds.toDouble()),
+                              max: duration.inSeconds.toDouble(),
+                              onChanged: duration == Duration.zero
+                                  ? null
+                                  : (value) {
+                                      player.seekTo(
+                                        Duration(seconds: value.toInt()),
+                                      );
+                                    },
                             ),
                           ),
                           Padding(
@@ -217,7 +270,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                                   ),
                                 ),
                                 Text(
-                                  _formatDuration(currentSong.duration),
+                                  _formatDuration(duration),
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: AppTheme.textMuted,
@@ -239,7 +292,9 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           IconButton(
                             icon: Icon(
                               Icons.shuffle_rounded,
-                              color: player.isShuffle ? AppTheme.accent : Colors.white54,
+                              color: player.isShuffle
+                                  ? AppTheme.accent
+                                  : Colors.white54,
                               size: 24,
                             ),
                             onPressed: () => player.toggleShuffle(),
@@ -277,7 +332,9 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                               ),
                               child: Center(
                                 child: Icon(
-                                  player.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                  player.isPlaying
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
                                   color: Colors.white,
                                   size: 36,
                                 ),
@@ -296,7 +353,9 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           IconButton(
                             icon: Icon(
                               Icons.repeat_rounded,
-                              color: player.isRepeat ? AppTheme.accent : Colors.white54,
+                              color: player.isRepeat
+                                  ? AppTheme.accent
+                                  : Colors.white54,
                               size: 24,
                             ),
                             onPressed: () => player.toggleRepeat(),
@@ -315,7 +374,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                             onTap: () => _showDevicePicker(context),
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withAlpha(20),
                                 borderRadius: BorderRadius.circular(20),
@@ -347,7 +409,9 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                               IconButton(
                                 icon: Icon(
                                   Icons.lyrics_rounded,
-                                  color: _showLyrics ? AppTheme.accent : Colors.white70,
+                                  color: _showLyrics
+                                      ? AppTheme.accent
+                                      : Colors.white70,
                                   size: 22,
                                 ),
                                 onPressed: () {
@@ -364,7 +428,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                                   color: Colors.white70,
                                   size: 24,
                                 ),
-                                onPressed: () => _showQueueModal(context, player),
+                                onPressed: () =>
+                                    _showQueueModal(context, player),
                               ),
                             ],
                           ),
@@ -404,18 +469,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
-            child: Image.network(
-              song.coverUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
-                color: AppTheme.surfaceLight,
-                child: const Icon(
-                  Icons.music_note_rounded,
-                  size: 80,
-                  color: AppTheme.textMuted,
-                ),
-              ),
-            ),
+            child: CoverArtwork(url: song.coverUrl, width: 290, height: 290),
           ),
         ),
         const SizedBox(height: 16),
@@ -450,14 +504,17 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
           : ListView.builder(
               itemCount: song.lyrics.length,
               itemBuilder: (context, index) {
-                final isCurrentLine = index == 1; // Highlight mock active lyric line
+                final isCurrentLine =
+                    index == 1; // Highlight mock active lyric line
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
                     song.lyrics[index],
                     style: TextStyle(
                       fontSize: isCurrentLine ? 20 : 16,
-                      fontWeight: isCurrentLine ? FontWeight.bold : FontWeight.w500,
+                      fontWeight: isCurrentLine
+                          ? FontWeight.bold
+                          : FontWeight.w500,
                       color: isCurrentLine ? Colors.white : AppTheme.textMuted,
                     ),
                     textAlign: TextAlign.center,
@@ -477,7 +534,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   void _showQueueModal(BuildContext context, MusicPlayerController player) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.surface,
+      backgroundColor: context.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -517,29 +574,36 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                       contentPadding: EdgeInsets.zero,
                       leading: ClipRRect(
                         borderRadius: BorderRadius.circular(6),
-                        child: Image.network(
-                          item.coverUrl,
+                        child: CoverArtwork(
+                          url: item.coverUrl,
                           width: 44,
                           height: 44,
-                          fit: BoxFit.cover,
                         ),
                       ),
                       title: Text(
                         item.title,
                         style: TextStyle(
                           color: isCur ? AppTheme.accent : Colors.white,
-                          fontWeight: isCur ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isCur
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                       ),
                       subtitle: Text(
                         item.artist,
-                        style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                        style: const TextStyle(
+                          color: AppTheme.textMuted,
+                          fontSize: 12,
+                        ),
                       ),
                       trailing: isCur
                           ? const EqualizerBars(isPlaying: true, height: 16)
                           : Text(
                               item.durationString,
-                              style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                              style: const TextStyle(
+                                color: AppTheme.textMuted,
+                                fontSize: 12,
+                              ),
                             ),
                       onTap: () {
                         player.playSong(item);
@@ -559,7 +623,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   void _showDevicePicker(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.surface,
+      backgroundColor: context.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -575,17 +639,29 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.phone_android_rounded, color: Colors.white70),
+              leading: const Icon(
+                Icons.phone_android_rounded,
+                color: Colors.white70,
+              ),
               title: const Text('Loa ngoài điện thoại'),
               onTap: () => Navigator.pop(ctx),
             ),
             ListTile(
-              leading: const Icon(Icons.headphones_rounded, color: AppTheme.emerald),
+              leading: const Icon(
+                Icons.headphones_rounded,
+                color: AppTheme.emerald,
+              ),
               title: const Text(
                 'Tai nghe Bluetooth (Đang kết nối)',
-                style: TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: AppTheme.emerald,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              trailing: const Icon(Icons.check_rounded, color: AppTheme.emerald),
+              trailing: const Icon(
+                Icons.check_rounded,
+                color: AppTheme.emerald,
+              ),
               onTap: () => Navigator.pop(ctx),
             ),
           ],
@@ -597,7 +673,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   void _showMoreModal(BuildContext context, Song song) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.surface,
+      backgroundColor: context.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -612,6 +688,14 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
               onTap: () => Navigator.pop(ctx),
             ),
             ListTile(
+              leading: const Icon(Icons.download_for_offline_outlined),
+              title: const Text('Tải bài hát'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _downloadSong(song);
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.share_rounded),
               title: const Text('Chia sẻ bài hát'),
               onTap: () => Navigator.pop(ctx),
@@ -619,7 +703,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
             ListTile(
               leading: const Icon(Icons.timer_rounded),
               title: const Text('Hẹn giờ tắt nhạc'),
-              onTap: () => Navigator.pop(ctx),
+              onTap: () {
+                Navigator.pop(ctx);
+                showSleepTimerSheet(context);
+              },
             ),
             ListTile(
               leading: const Icon(Icons.album_rounded),
@@ -629,6 +716,27 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _downloadSong(Song song) async {
+    try {
+      final downloaded = await OfflineMusicService.instance.downloadSong(song);
+      if (mounted) {
+        _showMessage(
+          downloaded
+              ? 'Đã tải "${song.title}" xuống thiết bị.'
+              : 'Bài hát đã có trong mục Đã tải về.',
+        );
+      }
+    } catch (error) {
+      if (mounted) _showMessage('Không thể tải bài hát: $error');
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 }

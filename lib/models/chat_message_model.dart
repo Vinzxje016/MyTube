@@ -7,6 +7,8 @@ class ChatMessage {
   final DateTime timestamp;
   final List<Song> recommendedSongs;
   final List<String> quickReplies;
+  final String? playlistTitle;
+  final bool isPlaylistDraft;
 
   const ChatMessage({
     required this.id,
@@ -15,5 +17,7 @@ class ChatMessage {
     required this.timestamp,
     this.recommendedSongs = const [],
     this.quickReplies = const [],
+    this.playlistTitle,
+    this.isPlaylistDraft = false,
   });
 }

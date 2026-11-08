@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../controllers/music_player_controller.dart';
 import '../screens/now_playing_screen.dart';
 import 'equalizer_bars.dart';
+import 'cover_artwork.dart';
 
 class MiniPlayer extends StatelessWidget {
   const MiniPlayer({super.key});
@@ -30,16 +31,18 @@ class MiniPlayer extends StatelessWidget {
                       const NowPlayingScreen(),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
-                    const begin = Offset(0.0, 1.0);
-                    const end = Offset.zero;
-                    const curve = Curves.easeOutCubic;
-                    final tween =
-                        Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                    return SlideTransition(
-                      position: animation.drive(tween),
-                      child: child,
-                    );
-                  },
+                        const begin = Offset(0.0, 1.0);
+                        const end = Offset.zero;
+                        const curve = Curves.easeOutCubic;
+                        final tween = Tween(
+                          begin: begin,
+                          end: end,
+                        ).chain(CurveTween(curve: curve));
+                        return SlideTransition(
+                          position: animation.drive(tween),
+                          child: child,
+                        );
+                      },
                 ),
               );
             },
@@ -50,9 +53,9 @@ class MiniPlayer extends StatelessWidget {
                 child: Container(
                   height: 64,
                   decoration: BoxDecoration(
-                    color: AppTheme.surface.withAlpha(220),
+                    color: context.surfaceColor.withAlpha(245),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white12, width: 1),
+                    border: Border.all(color: context.borderColor, width: 1),
                     boxShadow: [
                       BoxShadow(
                         color: accentColor.withAlpha(40),
@@ -71,20 +74,10 @@ class MiniPlayer extends StatelessWidget {
                             // Thumbnail
                             ClipRRect(
                               borderRadius: BorderRadius.circular(10),
-                              child: Image.network(
-                                currentSong.coverUrl,
+                              child: CoverArtwork(
+                                url: currentSong.coverUrl,
                                 width: 46,
                                 height: 46,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => Container(
-                                  width: 46,
-                                  height: 46,
-                                  color: AppTheme.surfaceLight,
-                                  child: const Icon(
-                                    Icons.music_note_rounded,
-                                    color: AppTheme.textMuted,
-                                  ),
-                                ),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -100,8 +93,8 @@ class MiniPlayer extends StatelessWidget {
                                       Flexible(
                                         child: Text(
                                           currentSong.title,
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: context.primaryTextColor,
                                             fontWeight: FontWeight.w600,
                                             fontSize: 14,
                                           ),
@@ -121,9 +114,11 @@ class MiniPlayer extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    currentSong.artist,
-                                    style: const TextStyle(
-                                      color: AppTheme.textSecondary,
+                                    player.playbackError ?? currentSong.artist,
+                                    style: TextStyle(
+                                      color: player.playbackError == null
+                                          ? context.secondaryTextColor
+                                          : Colors.redAccent,
                                       fontSize: 12,
                                     ),
                                     maxLines: 1,
@@ -141,15 +136,18 @@ class MiniPlayer extends StatelessWidget {
                                     : Icons.favorite_border_rounded,
                                 color: player.isLiked(currentSong.id)
                                     ? AppTheme.accent
-                                    : AppTheme.textMuted,
+                                    : context.mutedTextColor,
                                 size: 22,
                               ),
-                              onPressed: () => player.toggleLike(currentSong.id),
+                              onPressed: () =>
+                                  player.toggleLike(currentSong.id),
                             ),
 
                             // Play / Pause Button
                             GestureDetector(
-                              onTap: () => player.togglePlayPause(),
+                              onTap: () => player.playbackError != null
+                                  ? player.retryPlayback()
+                                  : player.togglePlayPause(),
                               child: Container(
                                 width: 38,
                                 height: 38,
@@ -159,22 +157,32 @@ class MiniPlayer extends StatelessWidget {
                                     colors: [accentColor, AppTheme.accent],
                                   ),
                                 ),
-                                child: Icon(
-                                  player.isPlaying
-                                      ? Icons.pause_rounded
-                                      : Icons.play_arrow_rounded,
-                                  color: Colors.white,
-                                  size: 22,
-                                ),
+                                child: player.isLoading
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(10),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Icon(
+                                        player.playbackError != null
+                                            ? Icons.refresh_rounded
+                                            : player.isPlaying
+                                            ? Icons.pause_rounded
+                                            : Icons.play_arrow_rounded,
+                                        color: Colors.white,
+                                        size: 22,
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 6),
 
                             // Next Song Button
                             IconButton(
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.skip_next_rounded,
-                                color: Colors.white70,
+                                color: context.iconTextColor,
                                 size: 24,
                               ),
                               onPressed: () => player.nextSong(),
@@ -195,7 +203,9 @@ class MiniPlayer extends StatelessWidget {
                           child: LinearProgressIndicator(
                             value: player.progressFraction,
                             backgroundColor: Colors.transparent,
-                            valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              accentColor,
+                            ),
                             minHeight: 2.5,
                           ),
                         ),

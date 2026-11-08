@@ -44,7 +44,6 @@ class AppTheme {
   );
 
   static ThemeData get darkTheme {
-
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
@@ -86,4 +85,56 @@ class AppTheme {
       ),
     );
   }
+
+  static ThemeData get lightTheme => ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.light,
+    scaffoldBackgroundColor: const Color(0xFFF3F5F8),
+    colorScheme: const ColorScheme.light(
+      primary: Color(0xFF6D28D9),
+      secondary: Color(0xFFDB2777),
+      surface: Colors.white,
+      onSurface: Color(0xFF151821),
+    ),
+    textTheme: ThemeData.light(useMaterial3: true).textTheme.apply(
+      bodyColor: const Color(0xFF151821),
+      displayColor: const Color(0xFF151821),
+      fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      foregroundColor: Color(0xFF151821),
+      elevation: 0,
+      scrolledUnderElevation: 0,
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      selectedItemColor: Color(0xFF6D28D9),
+      unselectedItemColor: Color(0xFF64748B),
+      showUnselectedLabels: true,
+      type: BottomNavigationBarType.fixed,
+    ),
+  );
+}
+
+extension AppThemeColors on BuildContext {
+  bool get usesLightTheme => Theme.of(this).brightness == Brightness.light;
+  Color get pageColor =>
+      usesLightTheme ? const Color(0xFFF4F6FA) : AppTheme.background;
+  Color get surfaceColor => usesLightTheme ? Colors.white : AppTheme.surface;
+  Color get raisedSurfaceColor =>
+      usesLightTheme ? const Color(0xFFEAEDF4) : AppTheme.surfaceLight;
+  Color get borderColor =>
+      usesLightTheme ? const Color(0xFFDDE2EA) : AppTheme.surfaceBorder;
+  Color get primaryTextColor =>
+      usesLightTheme ? const Color(0xFF171923) : AppTheme.textPrimary;
+  Color get secondaryTextColor =>
+      usesLightTheme ? const Color(0xFF51596A) : AppTheme.textSecondary;
+  Color get mutedTextColor =>
+      usesLightTheme ? const Color(0xFF737D90) : AppTheme.textMuted;
+  Color get iconTextColor =>
+      usesLightTheme ? const Color(0xFF3F4859) : AppTheme.textSecondary;
+  Color get accentColor =>
+      usesLightTheme ? const Color(0xFF6D28D9) : AppTheme.primaryLight;
 }

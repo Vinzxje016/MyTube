@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import '../models/chat_message_model.dart';
 import '../models/song_model.dart';
 import '../services/ai_music_service.dart';
+import '../services/music_repository.dart';
 import '../theme/app_theme.dart';
 import '../controllers/music_player_controller.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/cover_artwork.dart';
 
 class AiChatScreen extends StatefulWidget {
   const AiChatScreen({super.key});
@@ -17,12 +19,15 @@ class _AiChatScreenState extends State<AiChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
+  late Future<List<Song>> _catalogFuture;
   bool _isTyping = false;
+  int _requestRevision = 0;
 
   @override
   void initState() {
     super.initState();
     _messages.add(AiMusicService.getInitialMessage());
+    _catalogFuture = MusicRepository.instance.getSongs();
   }
 
   @override
@@ -46,7 +51,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   Future<void> _sendMessage(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
+    if (trimmed.isEmpty || _isTyping) return;
 
     _textController.clear();
 
@@ -62,10 +67,29 @@ class _AiChatScreenState extends State<AiChatScreen> {
       _isTyping = true;
     });
     _scrollToBottom();
+    final requestRevision = ++_requestRevision;
 
-    final aiResponse = await AiMusicService.generateResponse(trimmed);
+    ChatMessage aiResponse;
+    try {
+      final catalog = await _catalogFuture;
+      aiResponse = await AiMusicService.generateResponse(
+        trimmed,
+        catalog,
+        conversation: _messages,
+      );
+    } catch (error) {
+      _catalogFuture = MusicRepository.instance.getSongs();
+      aiResponse = ChatMessage(
+        id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
+        text: error is AiMusicException
+            ? error.message
+            : 'AI DJ chưa kết nối được. Hãy kiểm tra cấu hình Gemini và thử lại.',
+        isUser: false,
+        timestamp: DateTime.now(),
+      );
+    }
 
-    if (mounted) {
+    if (mounted && requestRevision == _requestRevision) {
       setState(() {
         _isTyping = false;
         _messages.add(aiResponse);
@@ -75,6 +99,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   void _resetChat() {
+    _requestRevision++;
     setState(() {
       _messages.clear();
       _messages.add(AiMusicService.getInitialMessage());
@@ -268,6 +293,17 @@ class _AiChatScreenState extends State<AiChatScreen> {
                       (song) => _buildSongRecommendationCard(song, player),
                     ),
                   ],
+                  if (message.isPlaylistDraft) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => _editAndSavePlaylist(message),
+                        icon: const Icon(Icons.playlist_add_rounded),
+                        label: const Text('Chỉnh và lưu playlist'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -325,17 +361,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  song.coverUrl,
+                child: CoverArtwork(
+                  url: song.coverUrl,
                   width: 44,
                   height: 44,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    width: 44,
-                    height: 44,
-                    color: AppTheme.surface,
-                    child: const Icon(Icons.music_note, color: AppTheme.textMuted),
-                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -416,7 +445,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
             ),
             SizedBox(width: 10),
             Text(
-              'AI DJ đang chọn lọc bài hát phù hợp...',
+              'AI DJ đang kết nối Gemini...',
               style: TextStyle(
                 color: AppTheme.textSecondary,
                 fontSize: 12.5,
@@ -453,6 +482,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
               ),
               child: TextField(
                 controller: _textController,
+                enabled: !_isTyping,
+                maxLength: 1200,
                 textInputAction: TextInputAction.send,
                 onSubmitted: _sendMessage,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -472,11 +503,156 @@ class _AiChatScreenState extends State<AiChatScreen> {
             ),
             child: IconButton(
               icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-              onPressed: () => _sendMessage(_textController.text),
+              onPressed: _isTyping ? null : () => _sendMessage(_textController.text),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _editAndSavePlaylist(ChatMessage message) async {
+    final draft = await showDialog<_PlaylistDraftResult>(
+      context: context,
+      builder: (_) => _PlaylistDraftDialog(
+        title: message.playlistTitle ?? 'Playlist AI gợi ý',
+        songs: message.recommendedSongs,
+      ),
+    );
+    if (draft == null) return;
+
+    String? createdPlaylistId;
+    try {
+      final playlist = await MusicRepository.instance.createPlaylist(draft.title);
+      createdPlaylistId = playlist.id;
+      for (final song in draft.songs) {
+        await MusicRepository.instance.addSongToPlaylist(playlist.id, song.id);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã lưu playlist "${draft.title}" vào Thư viện.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      if (createdPlaylistId != null) {
+        try {
+          await MusicRepository.instance.deletePlaylist(createdPlaylistId);
+        } catch (_) {}
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể lưu playlist. Hãy thử lại.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+}
+
+class _PlaylistDraftResult {
+  final String title;
+  final List<Song> songs;
+
+  const _PlaylistDraftResult(this.title, this.songs);
+}
+
+class _PlaylistDraftDialog extends StatefulWidget {
+  final String title;
+  final List<Song> songs;
+
+  const _PlaylistDraftDialog({required this.title, required this.songs});
+
+  @override
+  State<_PlaylistDraftDialog> createState() => _PlaylistDraftDialogState();
+}
+
+class _PlaylistDraftDialogState extends State<_PlaylistDraftDialog> {
+  late final TextEditingController _titleController;
+  late final Set<String> _selectedIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.title);
+    _selectedIds = widget.songs.map((song) => song.id).toSet();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Chỉnh playlist'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _titleController,
+              maxLength: 100,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(labelText: 'Tên playlist'),
+            ),
+            SizedBox(
+              height: MediaQuery.sizeOf(context).height * 0.38,
+              child: ListView(
+                children: widget.songs.map((song) {
+                  return CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _selectedIds.contains(song.id),
+                    title: Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      song.artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onChanged: (selected) => setState(() {
+                      if (selected == true) {
+                        _selectedIds.add(song.id);
+                      } else {
+                        _selectedIds.remove(song.id);
+                      }
+                    }),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Hủy'),
+        ),
+        FilledButton(
+          onPressed: _titleController.text.trim().isEmpty ||
+                  _selectedIds.isEmpty
+              ? null
+              : () => Navigator.pop(
+                    context,
+                    _PlaylistDraftResult(
+                      _titleController.text.trim(),
+                      widget.songs
+                          .where((song) => _selectedIds.contains(song.id))
+                          .toList(),
+                    ),
+                  ),
+          child: const Text('Lưu vào Thư viện'),
+        ),
+      ],
     );
   }
 }

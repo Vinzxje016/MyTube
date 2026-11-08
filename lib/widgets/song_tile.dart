@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../models/song_model.dart';
 import '../theme/app_theme.dart';
 import '../controllers/music_player_controller.dart';
+import 'cover_artwork.dart';
 import 'equalizer_bars.dart';
+import 'genre_labels.dart';
 
 class SongTile extends StatelessWidget {
   final Song song;
@@ -51,13 +53,17 @@ class SongTile extends StatelessWidget {
                     SizedBox(
                       width: 28,
                       child: isPlaying
-                          ? EqualizerBars(isPlaying: true, color: AppTheme.accent, height: 16)
+                          ? EqualizerBars(
+                              isPlaying: true,
+                              color: AppTheme.accent,
+                              height: 16,
+                            )
                           : Text(
                               '${index!}',
                               style: TextStyle(
                                 color: isCurrentSong
                                     ? AppTheme.accent
-                                    : AppTheme.textMuted,
+                                    : context.mutedTextColor,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
                               ),
@@ -72,21 +78,7 @@ class SongTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     child: Stack(
                       children: [
-                        Image.network(
-                          song.coverUrl,
-                          width: 48,
-                          height: 48,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            width: 48,
-                            height: 48,
-                            color: AppTheme.surfaceLight,
-                            child: const Icon(
-                              Icons.music_note_rounded,
-                              color: AppTheme.textMuted,
-                            ),
-                          ),
-                        ),
+                        CoverArtwork(url: song.coverUrl, width: 48, height: 48),
                         if (isPlaying && index == null)
                           Container(
                             width: 48,
@@ -118,7 +110,7 @@ class SongTile extends StatelessWidget {
                                 style: TextStyle(
                                   color: isCurrentSong
                                       ? AppTheme.accent
-                                      : AppTheme.textPrimary,
+                                      : context.primaryTextColor,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 15,
                                 ),
@@ -134,15 +126,15 @@ class SongTile extends StatelessWidget {
                                   vertical: 1.5,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.surfaceLight,
+                                  color: context.raisedSurfaceColor,
                                   borderRadius: BorderRadius.circular(3),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'E',
                                   style: TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.bold,
-                                    color: AppTheme.textSecondary,
+                                    color: context.secondaryTextColor,
                                   ),
                                 ),
                               ),
@@ -152,13 +144,17 @@ class SongTile extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           song.artist,
-                          style: const TextStyle(
-                            color: AppTheme.textSecondary,
+                          style: TextStyle(
+                            color: context.secondaryTextColor,
                             fontSize: 13,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if (song.tags.isNotEmpty) ...[
+                          const SizedBox(height: 5),
+                          GenreLabels(labels: song.tags, maxLabels: 3),
+                        ],
                       ],
                     ),
                   ),
@@ -166,8 +162,10 @@ class SongTile extends StatelessWidget {
                   // Like button
                   IconButton(
                     icon: Icon(
-                      isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                      color: isLiked ? AppTheme.accent : AppTheme.textMuted,
+                      isLiked
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: isLiked ? AppTheme.accent : context.mutedTextColor,
                       size: 20,
                     ),
                     onPressed: () => player.toggleLike(song.id),
@@ -176,12 +174,13 @@ class SongTile extends StatelessWidget {
 
                   // More options
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.more_vert_rounded,
-                      color: AppTheme.textMuted,
+                      color: context.mutedTextColor,
                       size: 20,
                     ),
-                    onPressed: onMorePressed ??
+                    onPressed:
+                        onMorePressed ??
                         () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(

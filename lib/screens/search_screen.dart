@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/song_model.dart';
+import '../services/music_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/song_tile.dart';
-import 'ai_chat_screen.dart';
+import '../widgets/ai_dj_entry.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -14,6 +15,8 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String? _selectedGenre;
+  late Future<List<String>> _genresFuture;
 
   final List<String> _recentSearches = [
     'Đen Vâu',
@@ -24,6 +27,12 @@ class _SearchScreenState extends State<SearchScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _genresFuture = MusicRepository.instance.getGenres();
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -31,14 +40,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredSongs = MusicData.sampleSongs.where((song) {
-      final query = _searchQuery.toLowerCase().trim();
-      return song.title.toLowerCase().contains(query) ||
-          song.artist.toLowerCase().contains(query) ||
-          song.album.toLowerCase().contains(query);
-    }).toList();
-
     return Scaffold(
+      backgroundColor: context.pageColor,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -50,32 +53,36 @@ class _SearchScreenState extends State<SearchScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Tìm Kiếm',
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: context.primaryTextColor,
                     ),
                   ),
                   TextButton.icon(
                     style: TextButton.styleFrom(
                       backgroundColor: AppTheme.primary.withAlpha(30),
-                      foregroundColor: AppTheme.primaryLight,
+                      foregroundColor: context.accentColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                         side: BorderSide(color: AppTheme.primary.withAlpha(80)),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                     ),
                     icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-                    label: const Text('Hỏi AI DJ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const AiChatScreen()),
-                      );
-                    },
+                    label: const Text(
+                      'Hỏi AI DJ',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    onPressed: () => openAiDj(context),
                   ),
                 ],
               ),
@@ -86,20 +93,32 @@ class _SearchScreenState extends State<SearchScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.surface,
+                  color: context.surfaceColor,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.surfaceBorder),
+                  border: Border.all(color: context.borderColor),
                 ),
                 child: TextField(
                   controller: _searchController,
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  style: TextStyle(
+                    color: context.primaryTextColor,
+                    fontSize: 15,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Bài hát, nghệ sĩ, hoặc album...',
-                    hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
-                    prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.textMuted),
+                    hintStyle: TextStyle(
+                      color: context.mutedTextColor,
+                      fontSize: 14,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: context.mutedTextColor,
+                    ),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.close_rounded, color: AppTheme.textMuted),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: context.mutedTextColor,
+                            ),
                             onPressed: () {
                               _searchController.clear();
                               setState(() {
@@ -107,13 +126,17 @@ class _SearchScreenState extends State<SearchScreen> {
                               });
                             },
                           )
-                        : const Icon(Icons.mic_none_rounded, color: AppTheme.textMuted),
+                        : Icon(
+                            Icons.mic_none_rounded,
+                            color: context.mutedTextColor,
+                          ),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   onChanged: (val) {
                     setState(() {
                       _searchQuery = val;
+                      _selectedGenre = null;
                     });
                   },
                 ),
@@ -124,8 +147,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
             // Content Area
             Expanded(
-              child: _searchQuery.isNotEmpty
-                  ? _buildSearchResults(filteredSongs)
+              child: _searchQuery.isNotEmpty || _selectedGenre != null
+                  ? _buildSearchResults()
                   : _buildBrowseContent(),
             ),
           ],
@@ -134,33 +157,79 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildSearchResults(List<Song> songs) {
-    if (songs.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search_off_rounded, size: 64, color: AppTheme.textMuted.withAlpha(120)),
-            const SizedBox(height: 16),
-            Text(
-              'Không tìm thấy kết quả cho "$_searchQuery"',
-              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+  Widget _buildSearchResults() {
+    return FutureBuilder<List<Song>>(
+      future: _selectedGenre == null
+          ? MusicRepository.instance.getSongs(query: _searchQuery)
+          : MusicRepository.instance.getSongsByGenre(_selectedGenre!),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(child: Text('Không thể tải kết quả tìm kiếm.'));
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final songs = snapshot.data!;
+        if (songs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.search_off_rounded,
+                  size: 64,
+                  color: context.mutedTextColor.withAlpha(150),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Không tìm thấy bài hát${_selectedGenre == null ? ' cho "$_searchQuery"' : ' thuộc "$_selectedGenre"'}',
+                  style: TextStyle(
+                    color: context.secondaryTextColor,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Hãy thử tìm kiếm với từ khóa khác',
+                  style: TextStyle(color: context.mutedTextColor, fontSize: 13),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'Hãy thử tìm kiếm với từ khóa khác',
-              style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(10, 0, 10, 110),
-      itemCount: songs.length,
-      itemBuilder: (context, index) {
-        return SongTile(song: songs[index]);
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 110),
+          itemCount: songs.length + (_selectedGenre == null ? 0 : 1),
+          itemBuilder: (context, index) {
+            if (_selectedGenre != null && index == 0) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _selectedGenre!,
+                        style: TextStyle(
+                          color: context.accentColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Bỏ lọc thể loại',
+                      onPressed: () => setState(() => _selectedGenre = null),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return SongTile(
+              song: songs[index - (_selectedGenre == null ? 0 : 1)],
+            );
+          },
+        );
       },
     );
   }
@@ -170,12 +239,12 @@ class _SearchScreenState extends State<SearchScreen> {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 110),
       children: [
         // Recent Searches
-        const Text(
+        Text(
           'Tìm Kiếm Gần Đây',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: context.primaryTextColor,
           ),
         ),
         const SizedBox(height: 12),
@@ -191,20 +260,30 @@ class _SearchScreenState extends State<SearchScreen> {
                 });
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
-                  color: AppTheme.surface,
+                  color: context.surfaceColor,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.surfaceBorder),
+                  border: Border.all(color: context.borderColor),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.history_rounded, size: 14, color: AppTheme.textMuted),
+                    Icon(
+                      Icons.history_rounded,
+                      size: 14,
+                      color: context.mutedTextColor,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       tag,
-                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5),
+                      style: TextStyle(
+                        color: context.secondaryTextColor,
+                        fontSize: 12.5,
+                      ),
                     ),
                   ],
                 ),
@@ -216,20 +295,46 @@ class _SearchScreenState extends State<SearchScreen> {
         const SizedBox(height: 24),
 
         // Browse Genres Grid
-        const Text(
+        Text(
           'Khám Phá Thể Loại',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: context.primaryTextColor,
           ),
         ),
         const SizedBox(height: 14),
 
-        GridView.builder(
+        _buildGenreGrid(),
+      ],
+    );
+  }
+
+  Widget _buildGenreGrid() {
+    return FutureBuilder<List<String>>(
+      future: _genresFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Text(
+            'Không tải được thể loại.',
+            style: TextStyle(color: context.mutedTextColor),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final genres = snapshot.data!;
+        if (genres.isEmpty) {
+          return Text(
+            'Chưa có thể loại trong catalog.',
+            style: TextStyle(color: context.mutedTextColor),
+          );
+        }
+
+        return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: MusicData.musicGenres.length,
+          itemCount: genres.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             crossAxisSpacing: 12,
@@ -237,55 +342,65 @@ class _SearchScreenState extends State<SearchScreen> {
             mainAxisExtent: 94,
           ),
           itemBuilder: (context, index) {
-            final genre = MusicData.musicGenres[index];
-            final List<Color> colors = genre['colors'];
-            final IconData icon = genre['icon'];
-
-            return Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  colors: colors,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.first.withAlpha(50),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  Text(
-                    genre['title'],
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+            final genreName = genres[index];
+            final style =
+                MusicData.musicGenres[index % MusicData.musicGenres.length];
+            final colors = style['colors'] as List<Color>;
+            final icon = style['icon'] as IconData;
+            return Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {
+                  _searchController.clear();
+                  setState(() {
+                    _searchQuery = '';
+                    _selectedGenre = genreName;
+                  });
+                },
+                child: Ink(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    gradient: LinearGradient(
+                      colors: colors,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
                   ),
-                  Positioned(
-                    right: -5,
-                    bottom: -5,
-                    child: Transform.rotate(
-                      angle: 0.25,
-                      child: Icon(
-                        icon,
-                        color: Colors.white.withAlpha(90),
-                        size: 44,
+                  child: Stack(
+                    children: [
+                      Text(
+                        genreName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        right: -5,
+                        bottom: -5,
+                        child: Transform.rotate(
+                          angle: 0.25,
+                          child: Icon(
+                            icon,
+                            color: Colors.white.withAlpha(90),
+                            size: 44,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             );
           },
-        ),
-      ],
+        );
+      },
     );
   }
 }

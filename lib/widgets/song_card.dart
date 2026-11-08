@@ -2,16 +2,14 @@ import 'package:flutter/material.dart';
 import '../models/song_model.dart';
 import '../theme/app_theme.dart';
 import '../controllers/music_player_controller.dart';
+import 'cover_artwork.dart';
+import 'genre_labels.dart';
 
 class SongCard extends StatelessWidget {
   final Song song;
   final VoidCallback? onTap;
 
-  const SongCard({
-    super.key,
-    required this.song,
-    this.onTap,
-  });
+  const SongCard({super.key, required this.song, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -49,17 +47,11 @@ class SongCard extends StatelessWidget {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(16),
-                        child: Image.network(
-                          song.coverUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: AppTheme.surfaceLight,
-                            child: const Icon(
-                              Icons.album_rounded,
-                              size: 48,
-                              color: AppTheme.textMuted,
-                            ),
-                          ),
+                        child: CoverArtwork(
+                          url: song.coverUrl,
+                          width: 145,
+                          height: 145,
+                          fallbackIcon: Icons.album_rounded,
                         ),
                       ),
                     ),
@@ -83,7 +75,9 @@ class SongCard extends StatelessWidget {
                           ],
                         ),
                         child: Icon(
-                          isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                          isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
                           color: Colors.white,
                           size: 24,
                         ),
@@ -97,7 +91,9 @@ class SongCard extends StatelessWidget {
                 Text(
                   song.title,
                   style: TextStyle(
-                    color: isCurrent ? AppTheme.accent : AppTheme.textPrimary,
+                    color: isCurrent
+                        ? AppTheme.accent
+                        : context.primaryTextColor,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -109,13 +105,14 @@ class SongCard extends StatelessWidget {
                 // Artist
                 Text(
                   song.artist,
-                  style: const TextStyle(
-                    color: AppTheme.textMuted,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: context.mutedTextColor, fontSize: 12),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (song.tags.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  GenreLabels(labels: song.tags, maxLabels: 2),
+                ],
               ],
             ),
           ),
@@ -129,11 +126,7 @@ class PlaylistCard extends StatelessWidget {
   final Playlist playlist;
   final VoidCallback? onTap;
 
-  const PlaylistCard({
-    super.key,
-    required this.playlist,
-    this.onTap,
-  });
+  const PlaylistCard({super.key, required this.playlist, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -163,19 +156,13 @@ class PlaylistCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      playlist.coverUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: playlist.gradientColors,
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                    playlist.coverUrl.isEmpty
+                        ? _playlistCoverFallback()
+                        : Image.network(
+                            playlist.coverUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => _playlistCoverFallback(),
                           ),
-                        ),
-                      ),
-                    ),
                     Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -224,10 +211,7 @@ class PlaylistCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               playlist.description,
-              style: const TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: context.secondaryTextColor, fontSize: 12),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -237,3 +221,12 @@ class PlaylistCard extends StatelessWidget {
     );
   }
 }
+
+Widget _playlistCoverFallback() => Container(
+  decoration: const BoxDecoration(
+    gradient: LinearGradient(colors: [AppTheme.primary, AppTheme.accent]),
+  ),
+  child: const Center(
+    child: Icon(Icons.queue_music_rounded, size: 42, color: Colors.white70),
+  ),
+);
