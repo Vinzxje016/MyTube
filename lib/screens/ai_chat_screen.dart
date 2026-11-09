@@ -114,9 +114,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
-        backgroundColor: AppTheme.surface,
+        backgroundColor: context.surfaceColor,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: context.primaryTextColor, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(
@@ -142,7 +142,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            const Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -152,7 +152,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: context.primaryTextColor,
                       ),
                     ),
                     SizedBox(width: 6),
@@ -163,7 +163,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                   'Gợi ý bài hát theo thói quen & tâm trạng',
                   style: TextStyle(
                     fontSize: 11,
-                    color: AppTheme.emerald,
+                    color: context.accentColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -173,7 +173,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
+            icon: Icon(Icons.refresh_rounded, color: context.iconTextColor),
             tooltip: 'Làm mới cuộc trò chuyện',
             onPressed: _resetChat,
           ),
@@ -254,22 +254,22 @@ class _AiChatScreenState extends State<AiChatScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.surface,
+                color: context.surfaceColor,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(18),
                   topRight: Radius.circular(18),
                   bottomRight: Radius.circular(18),
                   bottomLeft: Radius.circular(4),
                 ),
-                border: Border.all(color: AppTheme.surfaceBorder),
+                border: Border.all(color: context.borderColor),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     message.text,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: context.primaryTextColor,
                       fontSize: 14,
                       height: 1.45,
                     ),
@@ -278,12 +278,12 @@ class _AiChatScreenState extends State<AiChatScreen> {
                   // Recommended Songs inside bubble
                   if (message.recommendedSongs.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    const Divider(color: Colors.white10),
+                    Divider(color: context.borderColor),
                     const SizedBox(height: 8),
                     Text(
                       'Gợi ý bài hát dành cho bạn (${message.recommendedSongs.length}):',
-                      style: const TextStyle(
-                        color: AppTheme.primaryLight,
+                      style: TextStyle(
+                        color: context.accentColor,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -316,15 +316,15 @@ class _AiChatScreenState extends State<AiChatScreen> {
                 runSpacing: 8,
                 children: message.quickReplies.map((reply) {
                   return ActionChip(
-                    backgroundColor: AppTheme.surfaceLight,
-                    side: BorderSide(color: AppTheme.primary.withAlpha(80)),
+                    backgroundColor: context.raisedSurfaceColor,
+                    side: BorderSide(color: context.accentColor.withAlpha(80)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
                     label: Text(
                       reply,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.primaryTextColor,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -351,10 +351,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: isCur ? AppTheme.primary.withAlpha(25) : AppTheme.surfaceLight,
+            color: isCur ? AppTheme.primary.withAlpha(25) : context.raisedSurfaceColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isCur ? AppTheme.primary : Colors.white10,
+              color: isCur ? AppTheme.primary : context.borderColor,
             ),
           ),
           child: Row(
@@ -375,7 +375,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                     Text(
                       song.title,
                       style: TextStyle(
-                        color: isCur ? AppTheme.accent : Colors.white,
+                        color: isCur ? context.accentColor : context.primaryTextColor,
                         fontSize: 13.5,
                         fontWeight: FontWeight.bold,
                       ),
@@ -385,8 +385,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
                     const SizedBox(height: 2),
                     Text(
                       '${song.artist} • ${song.durationString}',
-                      style: const TextStyle(
-                        color: AppTheme.textMuted,
+                      style: TextStyle(
+                        color: context.secondaryTextColor,
                         fontSize: 11.5,
                       ),
                       maxLines: 1,
@@ -428,11 +428,11 @@ class _AiChatScreenState extends State<AiChatScreen> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: context.surfaceColor,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.surfaceBorder),
+          border: Border.all(color: context.borderColor),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
@@ -440,14 +440,14 @@ class _AiChatScreenState extends State<AiChatScreen> {
               height: 14,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryLight),
+                valueColor: AlwaysStoppedAnimation<Color>(context.accentColor),
               ),
             ),
             SizedBox(width: 10),
             Text(
               'AI DJ đang kết nối Gemini...',
               style: TextStyle(
-                color: AppTheme.textSecondary,
+                color: context.secondaryTextColor,
                 fontSize: 12.5,
                 fontStyle: FontStyle.italic,
               ),
@@ -467,8 +467,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
         MediaQuery.of(context).padding.bottom + 10,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
-        border: const Border(top: BorderSide(color: Colors.white12, width: 0.8)),
+        color: context.surfaceColor,
+        border: Border(top: BorderSide(color: context.borderColor, width: 0.8)),
       ),
       child: Row(
         children: [
@@ -476,9 +476,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: AppTheme.surfaceLight,
+                color: context.raisedSurfaceColor,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white10),
+                border: Border.all(color: context.borderColor),
               ),
               child: TextField(
                 controller: _textController,
@@ -486,10 +486,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
                 maxLength: 1200,
                 textInputAction: TextInputAction.send,
                 onSubmitted: _sendMessage,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-                decoration: const InputDecoration(
+                style: TextStyle(color: context.primaryTextColor, fontSize: 14),
+                decoration: InputDecoration(
                   hintText: 'Nói tâm trạng của bạn (ví dụ: cần tập trung, buồn...)...',
-                  hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                  hintStyle: TextStyle(color: context.mutedTextColor, fontSize: 13),
                   border: InputBorder.none,
                 ),
               ),

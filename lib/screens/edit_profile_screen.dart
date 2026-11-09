@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../services/user_profile_service.dart';
 import '../theme/app_theme.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -30,7 +31,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final user = Supabase.instance.client.auth.currentUser;
     _nameController.text = user?.userMetadata?['name'] as String? ?? '';
     _emailController.text = user?.email ?? '';
-    _avatarUrl = user?.userMetadata?['avatar_url'] as String?;
+    _avatarUrl =
+        UserProfileService.instance.avatarUrl ??
+        user?.userMetadata?['avatar_url'] as String?;
   }
 
   @override
@@ -122,13 +125,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           password: password.isEmpty ? null : password,
         ),
       );
+      if (_avatarBytes != null && avatarUrl != null) {
+        await UserProfileService.instance.updateAvatar(avatarUrl);
+      }
       if (!mounted) return;
       Navigator.pop(context, emailChanged);
     } on AuthException catch (error) {
       if (mounted) _showMessage(error.message);
+    } on PostgrestException catch (error) {
+      if (mounted) {
+        final profileTableMissing =
+            error.code == '42P01' || error.message.contains('profiles');
+        _showMessage(
+          profileTableMissing
+              ? 'Chưa cấu hình đồng bộ avatar trên Supabase. Hãy chạy migration 202611090001_profile_avatar_sync.sql rồi thử lại.'
+              : 'Không thể đồng bộ hồ sơ. ${error.message}',
+        );
+      }
     } on StorageException catch (error) {
       if (mounted) {
-        _showMessage('Không thể tải ảnh lên. ${error.message}');
+        final message = error.message.toLowerCase().contains('bucket not found')
+            ? 'Bucket profile-avatars chưa có trong Supabase project của ứng dụng. Hãy chạy migration 202611080004_profile_avatars.sql trên đúng project rồi thử lại.'
+            : 'Không thể tải ảnh lên. ${error.message}';
+        _showMessage(message);
       }
     } catch (_) {
       if (mounted) _showMessage('Không thể lưu thay đổi. Hãy thử lại.');

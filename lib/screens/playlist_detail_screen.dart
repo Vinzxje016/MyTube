@@ -189,8 +189,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   // Shuffle Button
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white24),
+                      foregroundColor: context.accentColor,
+                      side: BorderSide(color: context.accentColor.withAlpha(120)),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 18,
                         vertical: 12,

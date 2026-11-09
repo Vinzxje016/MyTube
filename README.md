@@ -18,6 +18,12 @@ Mở SQL Editor và chạy các migration theo thứ tự:
 2. `supabase/migrations/202611070002_song_source_filename.sql`
 3. `supabase/migrations/202611080001_normalize_song_genres.sql`
 4. `supabase/migrations/202611080002_seed_music_genres.sql`
+5. `supabase/migrations/202611080003_listening_time.sql`
+6. `supabase/migrations/202611080004_profile_avatars.sql`
+7. `supabase/migrations/202611080005_premium_vnpay.sql`
+8. `supabase/migrations/202611080006_premium_zalopay.sql`
+9. `supabase/migrations/202611080007_restore_premium_vnpay.sql`
+10. `supabase/migrations/202611090001_profile_avatar_sync.sql`
 
 Trong Authentication settings, bật xác minh email và cho phép redirect URI
 `io.supabase.flutter://login-callback/`. Ứng dụng dùng URI này cho liên kết xác
@@ -46,24 +52,26 @@ playlist trước khi lưu.
 
 ## Nhập nhạc
 
-Các MP3 nằm trong `..music_data`. Sửa metadata tại
-`supabase/music_metadata.csv`; cột `filename` phải khớp đúng tên MP3 và nhiều
-thể loại phân cách bằng dấu chấm phẩy trong cột `genres`.
+Để tải batch 32 MP3 mới trong `..\music_data`, kiểm tra và cập nhật metadata
+tại `supabase/music_metadata_new.csv`. CSV này được tạo từ tag ID3; `title` và
+`artist` đã có khi đọc được, còn `genres` và `cover_filename` có thể điền trước
+khi import. Tên file trong cột `filename` phải khớp chính xác với MP3.
 
-Chạy import trong PowerShell trên máy admin tin cậy. Secret key chỉ được đặt
-tạm trong terminal và cần thuộc cùng project với `SUPABASE_URL`:
+Chạy lệnh sau trong PowerShell trên máy admin tin cậy. Script dùng thư mục nhạc
+và CSV mới làm mặc định, đồng thời sẽ yêu cầu Secret/service-role key nếu chưa
+có trong môi trường:
 
 ```powershell
-$env:SUPABASE_URL = 'https://PROJECT_REF.supabase.co'
-$env:SUPABASE_SERVICE_ROLE_KEY = 'sb_secret_...'
-node supabase/scripts/import_tracks.mjs '..\music_data' 'supabase\music_metadata.csv'
-Remove-Item Env:SUPABASE_SERVICE_ROLE_KEY
+.\supabase\scripts\import_new_music.ps1
 ```
 
-Script tải MP3 lên bucket riêng `tracks`, cập nhật catalog và đồng bộ thể loại
-vào `genres`/`song_genres`. Không mở quyền ghi Storage cho người dùng ứng dụng
-để khắc phục lỗi import `403`; hãy kiểm tra Secret/service-role key và Project
-URL có cùng project.
+Có thể truyền thư mục hoặc CSV khác bằng tham số `-MusicDirectory` và
+`-MetadataCsv`. Wrapper xác nhận danh sách MP3 và CSV khớp nhau trước khi tải;
+nó gọi `import_tracks.mjs` để tải MP3 lên bucket riêng `tracks`, cập nhật
+catalog và đồng bộ thể loại. `supabase/music_metadata.csv` là CSV cũ của batch
+43 bài, có tên file không thuộc thư mục hiện tại; không dùng CSV đó cho lệnh
+batch mới. Không mở quyền ghi Storage cho người dùng ứng dụng để khắc phục lỗi
+import `403`; hãy kiểm tra Secret/service-role key và project URL.
 
 ## Kiểm tra và build Android
 

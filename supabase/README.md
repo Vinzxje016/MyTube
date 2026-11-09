@@ -13,6 +13,7 @@ Mở SQL Editor của project Supabase và chạy các migration theo thứ tự
 7. `migrations/202611080005_premium_vnpay.sql`
 8. `migrations/202611080006_premium_zalopay.sql`
 9. `migrations/202611080007_restore_premium_vnpay.sql`
+10. `migrations/202611090001_profile_avatar_sync.sql`
 
 Các migration tạo catalog nhạc, bảng playlist và lịch sử nghe theo tài khoản,
 các chính sách Row Level Security (RLS), Storage bucket và khóa tên file nguồn
@@ -30,6 +31,18 @@ cập nhật hoặc xóa ảnh trong thư mục có UID của chính mình; ản
 công khai để hiển thị hồ sơ. Trang Cá nhân cập nhật tên/avatar trong user
 metadata. Email mới yêu cầu xác nhận qua email; mật khẩu mới được cập nhật bởi
 Supabase Auth.
+
+Nếu tải avatar báo `Bucket not found`, hãy mở file migration này trong SQL Editor
+và chạy trên cùng Supabase project mà APK đang dùng. Kiểm tra Project URL trong
+cấu hình build Android trỏ tới project đó; migration chạy ở project khác không
+tạo bucket cho ứng dụng hiện tại. Không tạo bucket bằng publishable key trong
+client.
+
+Migration `202611090001_profile_avatar_sync.sql` tạo bảng `profiles` chỉ cho
+phép mỗi tài khoản đọc/cập nhật hồ sơ của chính mình và bật Realtime cho bảng.
+App dùng bảng này để avatar cập nhật tức thời trên các thiết bị cùng tài khoản;
+hãy chạy migration sau migration bucket avatar trước khi dùng phiên bản app có
+đồng bộ avatar.
 
 Migration `202611080005_premium_vnpay.sql` tạo subscription Premium và đơn hàng
 VNPay. Migration `202611080006_premium_zalopay.sql` là phần thử nghiệm ZaloPay,
@@ -115,11 +128,39 @@ supabase functions deploy ai-dj
 
 ## Import và cập nhật catalog nhạc
 
+### Batch 32 MP3 mới
+
+CSV `music_metadata_new.csv` được tạo từ tag ID3 của 32 MP3 trong thư mục
+`..\music_data`. Điền các thể loại còn thiếu vào `genres` (phân cách bằng dấu
+chấm phẩy) và ảnh bìa vào `cover_filename` nếu cần. Bỏ trống các ô này nếu chưa
+có thông tin; script vẫn dùng thể loại/ảnh bìa nhúng trong ID3 khi có.
+
+Trong PowerShell, chạy wrapper sau từ thư mục gốc project. Nó mặc định dùng
+đúng thư mục và CSV của batch mới, kiểm tra mọi tên MP3 khớp một-một với CSV,
+rồi hỏi Secret/service-role key nếu biến môi trường chưa được đặt:
+
+```powershell
+.\supabase\scripts\import_new_music.ps1
+```
+
+Cũng có thể chỉ định batch khác:
+
+```powershell
+.\supabase\scripts\import_new_music.ps1 -MusicDirectory 'D:\path\to\music' -MetadataCsv 'D:\path\to\metadata.csv'
+```
+
+`music_metadata.csv` là CSV cũ tạo từ 43 MP3 của batch trước và chứa tên file
+không còn trong thư mục nhạc hiện tại. Không truyền CSV cũ cùng thư mục
+`..\music_data`; wrapper sẽ dừng trước khi kết nối Supabase nếu CSV và thư mục
+không khớp.
+
+### Tạo CSV mẫu hoặc import batch khác
+
 Admin chạy script import trên máy tin cậy. Trước tiên, tạo CSV mẫu từ thư mục
 MP3. Script sẽ tự điền các trường đọc được từ tag ID3:
 
 ```powershell
-node supabase/scripts/import_tracks.mjs --template '..\music_data' 'supabase\music_metadata.csv'
+node supabase/scripts/import_tracks.mjs --template 'D:\path\to\music' 'D:\path\to\metadata.csv'
 ```
 
 Lệnh tạo mẫu sẽ không ghi đè CSV đã tồn tại, giúp tránh mất phần metadata bạn đã
@@ -145,11 +186,13 @@ dung audio không đổi.
 
 Sau khi rà soát CSV, chạy lệnh import. Chỉ giữ khóa service-role trong biến môi
 trường của terminal; không đưa khóa này vào Flutter hoặc commit vào repository.
+Đảm bảo CSV được tạo từ chính thư mục MP3 đang import; importer sẽ từ chối CSV
+có tên file không tồn tại trong thư mục.
 
 ```powershell
 $env:SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co'
 $env:SUPABASE_SERVICE_ROLE_KEY = 'YOUR_SERVICE_ROLE_KEY'
-node supabase/scripts/import_tracks.mjs '..\music_data' 'supabase\music_metadata.csv'
+node supabase/scripts/import_tracks.mjs 'D:\path\to\music' 'D:\path\to\metadata.csv'
 Remove-Item Env:SUPABASE_SERVICE_ROLE_KEY
 ```
 
@@ -161,9 +204,9 @@ Storage và hash không đổi, script bỏ qua tải lại audio. Lỗi mạng,
 bại, chạy lại đúng lệnh import; các bài đã xong không bị nhân đôi. Ứng dụng
 client chỉ có quyền đọc các bản ghi catalog.
 
-Thư mục `music_data` nằm cạnh thư mục project và hiện có 43 file MP3. CSV mẫu
-được tạo sẵn tại `supabase/music_metadata.csv`; hãy kiểm tra lại dữ liệu lấy từ
-ID3 và điền các trường còn thiếu trước khi import.
+CSV cũ `music_metadata.csv` được tạo từ 43 MP3 của batch trước. Dùng wrapper
+ở mục **Batch 32 MP3 mới** để import batch hiện tại; wrapper kiểm tra danh sách
+tên file trước khi yêu cầu khóa Supabase.
 
 ### Lỗi quyền truy cập khi import
 

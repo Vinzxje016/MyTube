@@ -329,6 +329,7 @@ class MusicPlayerController extends ChangeNotifier {
         title: refreshedSong.title,
         artist: refreshedSong.artist,
         album: refreshedSong.album,
+        duration: refreshedSong.duration,
         artUri: coverUri,
       );
       final audioSource = refreshedSong.localAudioPath != null

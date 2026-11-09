@@ -59,6 +59,7 @@ class MainActivity : AudioServiceActivity() {
                 }
             }
         }
+
     }
 
     override fun onNewIntent(intent: Intent) {

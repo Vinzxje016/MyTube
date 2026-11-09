@@ -163,6 +163,7 @@ class _AuthScreenState extends State<_AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: context.pageColor,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -174,10 +175,10 @@ class _AuthScreenState extends State<_AuthScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.graphic_eq_rounded,
                       size: 52,
-                      color: AppTheme.primaryLight,
+                      color: context.accentColor,
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -185,8 +186,8 @@ class _AuthScreenState extends State<_AuthScreen> {
                           ? 'Tạo tài khoản MyTube'
                           : 'Đăng nhập MyTube',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.primaryTextColor,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
@@ -218,14 +219,20 @@ class _AuthScreenState extends State<_AuthScreen> {
                       const SizedBox(height: 12),
                       Text(
                         _errorMessage!,
-                        style: const TextStyle(color: Colors.orangeAccent),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ],
                     if (_noticeMessage != null) ...[
                       const SizedBox(height: 12),
                       Text(
                         _noticeMessage!,
-                        style: const TextStyle(color: AppTheme.emerald),
+                        style: TextStyle(
+                          color: context.usesLightTheme
+                              ? const Color(0xFF047857)
+                              : AppTheme.emerald,
+                        ),
                       ),
                     ],
                     if (!_isRegistering)
@@ -319,6 +326,7 @@ class _UpdatePasswordScreenState extends State<_UpdatePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: context.pageColor,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -329,10 +337,14 @@ class _UpdatePasswordScreenState extends State<_UpdatePasswordScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
+                  Text(
                     'Đặt mật khẩu mới',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: context.primaryTextColor,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   TextField(
@@ -346,7 +358,9 @@ class _UpdatePasswordScreenState extends State<_UpdatePasswordScreen> {
                     const SizedBox(height: 12),
                     Text(
                       _errorMessage!,
-                      style: const TextStyle(color: Colors.orangeAccent),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 20),

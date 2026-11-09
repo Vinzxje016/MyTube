@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/theme_preferences.dart';
 import '../services/premium_service.dart';
+import '../services/user_profile_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sleep_timer_sheet.dart';
 import 'ai_chat_screen.dart';
@@ -22,6 +25,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(UserProfileService.instance.load());
     _premiumFuture = PremiumService.activeExpiry();
   }
 
@@ -111,7 +115,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: Row(
                     children: [
-                      _ProfileAvatar(url: avatarUrl, size: 64),
+                      ListenableBuilder(
+                        listenable: UserProfileService.instance,
+                        builder: (context, _) => _ProfileAvatar(
+                          url: UserProfileService.instance.avatarUrl ?? avatarUrl,
+                          size: 64,
+                        ),
+                      ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
@@ -270,8 +280,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                   selected: {ThemePreferences.instance.mode},
-                  onSelectionChanged: (selection) =>
-                      ThemePreferences.instance.setMode(selection.first),
+                  onSelectionChanged: (selection) async {
+                    await ThemePreferences.instance.setMode(selection.first);
+                    if (context.mounted) Navigator.pop(context);
+                  },
                 ),
               ],
             ),

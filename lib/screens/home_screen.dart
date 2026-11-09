@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/song_model.dart';
 import '../services/ai_music_service.dart';
 import '../services/music_repository.dart';
+import '../services/user_profile_service.dart';
 import '../theme/app_theme.dart';
 import '../controllers/music_player_controller.dart';
 import '../widgets/song_card.dart';
@@ -37,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(UserProfileService.instance.load());
     MusicRepository.instance.addListener(_onPlaylistsChanged);
     _songsFuture = MusicRepository.instance.getSongs();
     if (Supabase.instance.client.auth.currentUser != null) {
@@ -163,19 +167,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                                 child: ClipOval(
-                                  child: avatarUrl == null || avatarUrl.isEmpty
-                                      ? Icon(
-                                          Icons.person_rounded,
-                                          color: context.iconTextColor,
-                                        )
-                                      : Image.network(
-                                          avatarUrl,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, _, _) => Icon(
-                                            Icons.person_rounded,
-                                            color: context.iconTextColor,
-                                          ),
-                                        ),
+                                  child: ListenableBuilder(
+                                    listenable: UserProfileService.instance,
+                                    builder: (context, _) {
+                                      final profileAvatarUrl =
+                                          UserProfileService
+                                                  .instance
+                                                  .avatarUrl ??
+                                              avatarUrl;
+                                      return profileAvatarUrl == null ||
+                                              profileAvatarUrl.isEmpty
+                                          ? Icon(
+                                              Icons.person_rounded,
+                                              color: context.iconTextColor,
+                                            )
+                                          : Image.network(
+                                              profileAvatarUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, _, _) => Icon(
+                                                Icons.person_rounded,
+                                                color: context.iconTextColor,
+                                              ),
+                                            );
+                                    },
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 12),

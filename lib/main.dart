@@ -27,6 +27,8 @@ Future<void> main() async {
       androidNotificationChannelId: 'com.example.mytube.channel.audio',
       androidNotificationChannelName: 'MyTube playback',
       androidNotificationOngoing: true,
+      androidNotificationIcon: 'drawable/ic_stat_mytube',
+      androidNotificationClickStartsActivity: true,
     );
   }
 
